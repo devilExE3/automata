@@ -1,0 +1,6 @@
+# +arrays Library
+# Part of the AutoMaTA project.
+
+MACRO array_new(%array_name%, %length%) => {^call(_amtaex_arrays_create)[%array_name%, %length%]}
+MACRO array_get(%array_name%, %idx%) => {^call_ret(_amtaex_arrays_get)[%array_name%, %idx%]}
+MACRO array_set(%array_name%, %idx%, %val%) => {^call(_amtaex_arrays_set)[%array_name%, %idx%, %val%]}

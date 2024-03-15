@@ -1,0 +1,4 @@
+MACRO strlen(%x%) => {^call_ret(_amtaex_string_length)[%x%]}
+MACRO charat(%x%, %idx%) => {^call_ret(_amtaex_string_charat)[%x%, %idx%]}
+MACRO setchar(%x%, %idx%, %chr%) => {^call(_amtaex_string_setchar)[%x%, %idx%, %chr%]}
+MACRO strpad(%x%, %width%) => {^call_ret(_amtaex_string_pad)[%x%, %width%]}
