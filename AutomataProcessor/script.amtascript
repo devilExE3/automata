@@ -1,47 +1,10 @@
 +basic
-+math
 +arrays
 +string
 
-@compute_lpf
-
-    $size = 100000
-
-#   initialize array
-    ^array_new("lpf", $size + 5)
-    $i = 2
-    while $i < $size
-        ^array_set("lpf", $i, 0)
-        $i = $i + 1
-    ewhil
-
-#   run lpf algorithm
-    $i = 2
-    $cnt = 0
-    while $i < $size
-        if ^array_get("lpf", $i) ? 0
-            $cnt = $cnt + 1
-            $k = 2 * $i
-            while $k < $size
-                ^array_set("lpf", $k, 1)
-                $k = $k + $i
-            ewhil
-        fi
-        $i = $i + 1
-    ewhil
-
-@
-
 @main
-    !compute_lpf
-    ^print("Primes until " ~ s($size) ~ ": " ~ s($cnt))
-    $format = ""
-    $i = 2
-    while $i < $size:
-        if ^array_get("lpf", $i) ? 0
-            $format = $format ~ s($i) ~ ", "
-        fi
-        $i = $i + 1
-    ewhil
-    ^print($format)
+# demo code to print a singular quote
+    ^print(^quote)
+# print quoted text
+    ^print(^quote ~ "Hello, world!" ~ ^quote)
 @

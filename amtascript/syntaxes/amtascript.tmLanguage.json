@@ -1,0 +1,107 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "automata script",
+	"patterns": [
+		{
+			"name": "keyword.control",
+			"match": "\\b(if|el|fi|while|ewhil)\\b"
+		},
+		{
+			"name": "string.quoted.double",
+			"begin": "\"",
+			"end": "\""
+		},
+		{
+			"name": "variable.other",
+			"match": "\\$[a-zA-Z0-9_]+"
+		},
+		{
+			"name": "comment.line",
+			"match": "^#.*"
+		},
+		{
+			"name": "amta.function.decl",
+			"match": "@([a-zA-Z0-9_]+)|@(\\s|\\z)*",
+			"captures": {
+				"0": {
+					"name": "constant.language"
+				},
+				"1": {
+					"name": "entity.name.function"
+				}
+			}
+		},
+		{
+			"name": "amta.function.call",
+			"match": "\\!([a-zA-Z0-9_]+)",
+			"captures": {
+				"0": {
+					"name": "constant.language"
+				},
+				"1": {
+					"name": "entity.name.function"
+				}
+			}
+		},
+		{
+			"name": "constant.numeric",
+			"match": "\\d+"
+		},
+		{
+			"name": "keyword.operator",
+			"match": "\\+\\-\\*\\/\\&\\|\\<\\>\\?\\~\\'\\=]|\\_\\(|\\!\\(|s\\(|l\\("
+		},
+		{
+			"name": "amta.vardelete",
+			"match": "delete\\$([a-zA-Z0-9_]+)",
+			"captures": {
+				"0": {
+					"name": "keyword.other"
+				},
+				"1": {
+					"name": "variable.name"
+				}
+			}
+		},
+		{
+			"name": "amta.macro.decl",
+			"match": "^(MACRO) ([a-zA-Z0-9_]+)(\\([^\\)]*\\))?(\\[[^\\]]+\\])?\\s*(=>)",
+			"captures": {
+				"1": {
+					"name": "keyword.other"
+				},
+				"2": {
+					"name": "support.function"
+				},
+				"5": {
+					"name": "keyword.control"
+				}
+			}
+		},
+		{
+			"name": "amta.macro.call",
+			"match": "\\^([a-zA-Z0-9_]+)",
+			"captures": {
+				"0": {
+					"name": "keyword.other"
+				},
+				"1": {
+					"name": "support.function"
+				}
+			}
+		},
+		{
+			"name": "amta.libraryimport",
+			"match": "^\\+([a-zA-Z0-9_]+)",
+			"captures": {
+				"0": {
+					"name": "keyword.other"
+				},
+				"1": {
+					"name": "string.other"
+				}
+			}
+		}
+	],
+	"scopeName": "source.amtascript"
+}

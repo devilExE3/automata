@@ -6,4 +6,4 @@ MACRO call(%function_name%)[%params_..%] => [$%function_name%_%..% = %params_..%
 MACRO call_ret(%function_name%)[%params_..%] => [$%function_name%_%..% = %params_..%\n]!%function_name%{$%function_name%_ret}
 
 # default print function
-MACRO print(%string%) => $print_0=%string%\n!print
+MACRO print(%string%) => {^call(print)[%string%]}

@@ -1,0 +1,25 @@
+{
+  "name": "amtascript",
+  "displayName": "amtascript",
+  "description": "provide .amtascript / automata syntax highlighting",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "amtascript",
+      "aliases": ["automata script", "amtascript"],
+      "extensions": [".amtascript"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "amtascript",
+      "scopeName": "source.amtascript",
+      "path": "./syntaxes/amtascript.tmLanguage.json"
+    }]
+  }
+}
