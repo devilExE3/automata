@@ -10,7 +10,29 @@ namespace AutomataProcessor
     {
         private static void PrintHelp()
         {
-            Console.WriteLine("General Usage:\n  amta file_name [--lib lib_folder] [--debug] [--max_while_loops N]\n\nfile_name is the file which will be interpreted.\nThe function called when running is !main\n\n--lib lib_folder - specify another lib folder.\nDefault: ./lib\n\n--debug - print debug messages from AutoMaTA\n\n--max_while_loops N - specify maximum number of times a while block can run.\nIf you want to disable the limit, use -1\nDefault: 10000\n\namta --help");
+            Console.WriteLine("General Usage:\n  amta file_name [--lib lib_folder] [--debug] [--max_while_loops N]\n  amta _eval - launches expression evaluator\n\nfile_name is the file which will be interpreted.\nThe function called when running is !main\n\n--lib lib_folder - specify another lib folder.\nDefault: ./lib\n\n--debug - print debug messages from AutoMaTA\n\n--max_while_loops N - specify maximum number of times a while block can run.\nIf you want to disable the limit, use -1\nDefault: 10000\n\namta --help");
+        }
+
+        private static void LaunchExpressionEvaluator()
+        {
+            Console.WriteLine("AutoMaTA Expression Parser.\nType \">exit\" to exit\nPrepend lines with '>' to pass them to the code line parser");
+            ProgramScope scope = new ProgramScope("AutoMaTA CLI");
+            while (true)
+            {
+                Console.Write(">>> ");
+                string? line = Console.ReadLine();
+                if (line == null) break;
+                if (line == ">exit") break;
+                if(line.StartsWith(">"))
+                {
+                    CodeBlockParser.ParseCodeBlock(line[1..]).First().Execute(scope);
+                    Console.WriteLine(scope.ToString());
+                    continue;
+                }
+                var expr = ExpressionParser.ParseExpression(line);
+                Console.WriteLine(expr.ToString());
+                Console.WriteLine(expr.Evaluate(scope));
+            }
         }
 
         public static void Main(string[] args)
@@ -65,7 +87,14 @@ namespace AutomataProcessor
                 PrintHelp();
                 return;
             }
-            if(!File.Exists(amta_file))
+
+            if (amta_file == "_eval")
+            {
+                LaunchExpressionEvaluator();
+                return;
+            }
+
+            if (!File.Exists(amta_file))
             {
                 Console.WriteLine("File doesn't exist: " + amta_file + "\n\nPlease use \"amta --help\" for see a help page");
                 return;

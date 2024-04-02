@@ -18,8 +18,8 @@
         ["\"", "\""],
     ],
     "indentationRules": {
-        "increaseIndentPattern": "\\b(@.+|if|el|while)\\b",
-        "decreaseIndentPattern": "\\b(@(\\s|\\z)*|fi|el|ewhil)\\b"
+        "increaseIndentPattern": "@.+|\\b(if|el|while)\\b",
+        "decreaseIndentPattern": "@(\\s|\\z)*|\\b(fi|el|ewhil)\\b"
     },
     "autoCloseBefore": ";:.,=}])> \n\t",
 }

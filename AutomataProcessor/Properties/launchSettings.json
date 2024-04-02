@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AutomataProcessor": {
+      "commandName": "Project",
+      "commandLineArgs": "script.amtascript --debug --max_while_loops -1"
+    }
+  }
+}

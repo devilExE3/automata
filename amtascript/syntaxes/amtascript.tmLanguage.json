@@ -33,7 +33,7 @@
 		},
 		{
 			"name": "amta.function.call",
-			"match": "\\!([a-zA-Z0-9_]+)",
+			"match": "\\!\\s*([a-zA-Z0-9_]+)",
 			"captures": {
 				"0": {
 					"name": "constant.language"
@@ -53,7 +53,7 @@
 		},
 		{
 			"name": "amta.vardelete",
-			"match": "delete\\$([a-zA-Z0-9_]+)",
+			"match": "delete\\$\\s*([a-zA-Z0-9_]+)",
 			"captures": {
 				"0": {
 					"name": "keyword.other"

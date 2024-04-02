@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using AutomataProcessor.Backbone;
@@ -191,7 +192,6 @@ namespace AutomataProcessor
 
         public class Expression : IEvaluable
         {
-
             public IEvaluable LHS;
             public IEvaluable? RHS;
             public ExpressionType type;
@@ -694,7 +694,7 @@ namespace AutomataProcessor
 
             public void ConvertToLines()
             {
-                raw_lines = amtascript.Split('\n').Select(x => x.Trim()).ToList();
+                raw_lines = amtascript.Split('\n').Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
             }
 
             public void ParseFunctions()
@@ -808,11 +808,11 @@ namespace AutomataProcessor
             }
             public static ICodeLine ParseVariableDeletion(string line)
             {
-                return new Backbone.CodeLines.VariableDeletion(line["delete$".Length..]);
+                return new Backbone.CodeLines.VariableDeletion(line["delete$".Length..].Trim());
             }
             public static ICodeLine ParseFunctionCall(string line)
             {
-                return new Backbone.CodeLines.FunctionCall(line[1..]);
+                return new Backbone.CodeLines.FunctionCall(line[1..].Trim());
             }
             public static ICodeLine ParseIfBlocks(string[] lines, bool hasElse)
             {
@@ -846,177 +846,109 @@ namespace AutomataProcessor
         {
             public static IEvaluable ParseExpression(string expr)
             {
-                IEvaluable? LHS = null;
-                int i = 0;
-                // check LHS only expressions
-                if (expr.StartsWith("_("))
+                expr = expr.Trim();
+                while (expr[0] == '(' && expr.Last() == ')') // extract from bracketed expression
+                    expr = expr[1..(expr.Length - 1)];
+                // parse acording to operator orders
+                // firstly, check for operators in at root level
+                int depth = 0;
+                bool instr = false;
+                List<int> operators = new List<int>();
+                for (int i = 0; i < expr.Length; ++i)
                 {
-                    // find matching )
-                    int k = 1;
-                    int depth = 1;
-                    while (k < expr.Length && depth > 0)
+                    if (expr[i] == '(') ++depth;
+                    if (expr[i] == ')') --depth;
+                    if (expr[i] == '"') instr = !instr;
+                    if (expr[i] == '$')
                     {
-                        ++k;
-                        if (expr[k] == '(')
-                            ++depth;
-                        if (expr[k] == ')')
-                            --depth;
+                        // skip variable name
+                        while (i + 1 < expr.Length && expr[i + 1].IsAscii())
+                            ++i;
+                        continue;
                     }
-                    LHS = new Backbone.Expression(ParseExpression(expr[2..k]), Backbone.Expression.ExpressionType.NumberFlooring, null);
-                    i = k + 1;
+                    if (expr[i].IsOperator() && depth == 0 && !instr)
+                        operators.Add(i);
                 }
-                if (expr.StartsWith("!("))
+                if (operators.Count == 0)
                 {
-                    // find matching )
-                    int k = 1;
-                    int depth = 1;
-                    while (k < expr.Length && depth > 0)
-                    {
-                        ++k;
-                        if (expr[k] == '(')
-                            ++depth;
-                        if (expr[k] == ')')
-                            --depth;
-                    }
-                    LHS = new Backbone.Expression(ParseExpression(expr[2..k]), Backbone.Expression.ExpressionType.BooleanNot, null);
-                    i = k + 1;
-                }
-                if (expr.StartsWith("s("))
-                {
-                    // find matching )
-                    int k = 1;
-                    int depth = 1;
-                    while (k < expr.Length && depth > 0)
-                    {
-                        ++k;
-                        if (expr[k] == '(')
-                            ++depth;
-                        if (expr[k] == ')')
-                            --depth;
-                    }
-                    LHS = new Backbone.Expression(ParseExpression(expr[2..k]), Backbone.Expression.ExpressionType.IntToString, null);
-                    i = k + 1;
-                }
-                if (expr.StartsWith("l("))
-                {
-                    // find matching )
-                    int k = 1;
-                    int depth = 1;
-                    while (k < expr.Length && depth > 0)
-                    {
-                        ++k;
-                        if (expr[k] == '(')
-                            ++depth;
-                        if (expr[k] == ')')
-                            --depth;
-                    }
-                    LHS = new Backbone.Expression(ParseExpression(expr[2..k]), Backbone.Expression.ExpressionType.StringLowercase, null);
-                    i = k + 1;
-                }
-                if (expr.StartsWith("("))
-                {
-                    // find matching )
-                    int k = 0;
-                    int depth = 1;
-                    while (k < expr.Length && depth > 0)
-                    {
-                        ++k;
-                        if (expr[k] == '(')
-                            ++depth;
-                        if (expr[k] == ')')
-                            --depth;
-                    }
-                    LHS = ParseExpression(expr[1..k]);
-                    i = k + 1;
-                }
-                if (LHS == null)
-                {
-                    // check if LHS is variable
+                    // default parsing (number, string, variable)
                     if (expr.StartsWith('$'))
                     {
-                        ++i;
+                        // variable
                         string var_name = "";
-                        while (i < expr.Length && expr[i].IsAscii())
+                        for (int i = 1; i < expr.Length && expr[i].IsAscii(); ++i)
                         {
                             var_name += expr[i];
-                            ++i;
                         }
-                        LHS = new VariableResolver(var_name);
+                        return new VariableResolver(var_name);
                     }
-                    else
+                    if (expr.StartsWith('"'))
                     {
-                        if (expr.StartsWith('"'))
-                        {
-                            // get matching "
-                            int end = expr.IndexOf('"', 1);
-                            string constant = expr[1..end];
-                            i = end + 1;
-                            LHS = new StringConstant(constant);
-                        }
-                        else
-                        {
-                            int end = i;
-                            while (end < expr.Length && expr[end].IsPartOfNumber())
-                            {
-                                end++;
-                            }
-                            LHS = new NumberConstant(double.Parse(expr[i..end]));
-                            i = end;
-                        }
+                        // string
+                        // get matching "
+                        int end = expr.IndexOf('"', 1);
+                        string constant = expr[1..end];
+                        return new StringConstant(constant);
+                    }
+                    // number
+                    string number_const = "";
+                    for (int i = 0; i < expr.Length && expr[i].IsPartOfNumber(); ++i)
+                    {
+                        number_const += expr[i];
+                    }
+                    if (number_const == "")
+                    {
+                        throw new Exception("[TODO: add exception] Expected number, but got " + expr);
+                    }
+                    return new NumberConstant(double.Parse(number_const));
+                }
+                // determine last-most evaluated operator
+                int ord = -1;
+                List<int> splitIndexes = new List<int>();
+                foreach (var op in operators)
+                {
+                    var this_ord = expr[op].OperatorOrder();
+                    if (this_ord > ord)
+                    {
+                        ord = this_ord;
+                        splitIndexes.Clear();
+                        splitIndexes.Add(op);
+                    }
+                    else if (this_ord == ord && ord >= 0)
+                    {
+                        splitIndexes.Add(op);
                     }
                 }
-                // check for operator
-                while (i < expr.Length && expr[i] == ' ')
+                if (ord == 0)
                 {
-                    ++i;
+                    return new Backbone.Expression(ParseExpression(expr[(splitIndexes[0] + 1)..]), expr[splitIndexes[0]].OperatorType(), null);
                 }
-                if (i >= expr.Length) return LHS;
-                Backbone.Expression.ExpressionType? type = null;
-                switch (expr[i])
+                List<IEvaluable> expressions = new List<IEvaluable>();
+                int last_idx = 0;
+                splitIndexes.Add(expr.Length);
+                foreach (var split_idx in splitIndexes)
                 {
-                    case '+':
-                        type = Backbone.Expression.ExpressionType.NumberAddition;
-                        break;
-                    case '-':
-                        type = Backbone.Expression.ExpressionType.NumberSubtraction;
-                        break;
-                    case '*':
-                        type = Backbone.Expression.ExpressionType.NumberMultiplication;
-                        break;
-                    case '/':
-                        type = Backbone.Expression.ExpressionType.NumberDivision;
-                        break;
-                    case '&':
-                        type = Backbone.Expression.ExpressionType.BooleanAnd;
-                        break;
-                    case '|':
-                        type = Backbone.Expression.ExpressionType.BooleanOr;
-                        break;
-                    case '?':
-                        type = Backbone.Expression.ExpressionType.NumberEquals;
-                        break;
-                    case '<':
-                        type = Backbone.Expression.ExpressionType.NumberLessThan;
-                        break;
-                    case '>':
-                        type = Backbone.Expression.ExpressionType.NumberGreaterThan;
-                        break;
-                    case '~':
-                        type = Backbone.Expression.ExpressionType.StringAppending;
-                        break;
-                    case '\'':
-                        type = Backbone.Expression.ExpressionType.StringEquals;
-                        break;
+                    expressions.Add(ParseExpression(expr[last_idx..split_idx]));
+                    last_idx = split_idx + 1;
                 }
-                if (type == null) return LHS;
-                // check if we have RHS
-                ++i;
-                while (i < expr.Length && expr[i] == ' ')
-                    ++i;
-                if (i >= expr.Length)
-                    return new Backbone.Expression(LHS, type!.Value, null);
-                return new Backbone.Expression(LHS, type!.Value, ParseExpression(expr[i..]));
+                splitIndexes.RemoveAt(splitIndexes.Count - 1);
+                var old_LHS = new Backbone.Expression(expressions[0], expr[splitIndexes[0]].OperatorType(), expressions[1]);
+                for (int i = 1; i < splitIndexes.Count; ++i)
+                {
+                    old_LHS = new Backbone.Expression(old_LHS, expr[splitIndexes[i]].OperatorType(), expressions[i + 1]);
+                }
+                return old_LHS;
             }
+
+            public static readonly List<string> operator_order = new List<string> {
+                // order from first to last to be evaluated
+                "!_sl",
+                "*/",
+                "+-~",
+                "?'<>",
+                "&",
+                "|"
+            };
         }
 
         public class Macro
@@ -1119,10 +1051,13 @@ namespace AutomataProcessor
                     // we need manual parsing, because strings can contain commas
                     string arg = "";
                     bool instr = false;
+                    int par_depth = 0;
                     int depth = 1;
                     while (i < line.Length && depth > 0)
                     {
-                        if (line[i] == ',' && !instr)
+                        if (line[i] == '(') ++par_depth;
+                        if (line[i] == ')') --par_depth;
+                        if (line[i] == ',' && !instr && par_depth == 0)
                         {
                             callArgs.Add(arg.Trim());
                             arg = "";
@@ -1134,6 +1069,7 @@ namespace AutomataProcessor
                                 instr = !instr;
                         }
                         ++i;
+                        if (i >= line.Length) continue;
                         if (line[i] == '(') ++depth;
                         if (line[i] == ')') --depth;
                     }
@@ -1147,10 +1083,13 @@ namespace AutomataProcessor
                     // we need manual parsing, because strings can contain commas
                     string arg = "";
                     bool instr = false;
+                    int par_depth = 0;
                     int depth = 1;
                     while (i < line.Length && depth > 0)
                     {
-                        if (line[i] == ',' && !instr)
+                        if (line[i] == '(') ++par_depth;
+                        if (line[i] == ')') --par_depth;
+                        if (line[i] == ',' && !instr && par_depth == 0)
                         {
                             callMulti.Add(arg.Trim());
                             arg = "";
@@ -1241,6 +1180,59 @@ namespace AutomataProcessor
                 if (c == '.') return true;
                 return false;
             }
+            public static bool IsOperator(this char c)
+            {
+                return "*/+-~<>?'&|!_sl".Contains(c);
+            }
+            public static int OperatorOrder(this char c)
+            {
+                int i = 0;
+                foreach (var list in ExpressionParser.operator_order)
+                {
+                    if (list.Contains(c))
+                        return i;
+                    i++;
+                }
+                return -1;
+            }
+            public static Backbone.Expression.ExpressionType OperatorType(this char c)
+            {
+                switch (c)
+                {
+                    case '+':
+                        return Backbone.Expression.ExpressionType.NumberAddition;
+                    case '-':
+                        return Backbone.Expression.ExpressionType.NumberSubtraction;
+                    case '*':
+                        return Backbone.Expression.ExpressionType.NumberMultiplication;
+                    case '/':
+                        return Backbone.Expression.ExpressionType.NumberDivision;
+                    case '&':
+                        return Backbone.Expression.ExpressionType.BooleanAnd;
+                    case '|':
+                        return Backbone.Expression.ExpressionType.BooleanOr;
+                    case '?':
+                        return Backbone.Expression.ExpressionType.NumberEquals;
+                    case '<':
+                        return Backbone.Expression.ExpressionType.NumberLessThan;
+                    case '>':
+                        return Backbone.Expression.ExpressionType.NumberGreaterThan;
+                    case '~':
+                        return Backbone.Expression.ExpressionType.StringAppending;
+                    case '\'':
+                        return Backbone.Expression.ExpressionType.StringEquals;
+                    // unary operators
+                    case '!':
+                        return Backbone.Expression.ExpressionType.BooleanNot;
+                    case '_':
+                        return Backbone.Expression.ExpressionType.NumberFlooring;
+                    case 's':
+                        return Backbone.Expression.ExpressionType.IntToString;
+                    case 'l':
+                        return Backbone.Expression.ExpressionType.StringLowercase;
+                }
+                throw new Backbone.LogicEngine.UnknownOperatorException("Unknown operator " + c);
+            }
         }
     }
 
@@ -1254,45 +1246,63 @@ namespace AutomataProcessor
                     return; // TODO: throw error
                 scope.native.Add("amtaex_arrays_extension", new Dictionary<string, Variable[]>());
                 scope.functions.Add("_amtaex_arrays_create", new NativeFunction((scope) => {
-                    var namevar = scope.GetVariable("_amtaex_arrays_create_0");
-                    if (namevar == null || namevar.var_type != Variable.VariableType.String) return;
-                    var lengthvar = scope.GetVariable("_amtaex_arrays_create_1");
-                    if (lengthvar == null || lengthvar.var_type != Variable.VariableType.Number) return;
-                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
-                    var array = new Variable[(int)lengthvar.num_value!];
-                    for (int i = 0; i < array.Length; ++i)
-                        array[i] = new Variable(i.ToString(), 0);
-                    storage.Add(namevar.str_value!, array);
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_create_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_create_1", Variable.VariableType.Number)) return;
+                    var name = Utilities.GetString(scope, "_amtaex_arrays_create_0");
+                    var length = (int)Utilities.GetDouble(scope, "_amtaex_arrays_create_1");
                     scope.UnregisterVariable("_amtaex_arrays_create_0");
                     scope.UnregisterVariable("_amtaex_arrays_create_1");
+                    if (length < 1) return;
+
+                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
+                    var array = new Variable[length];
+                    for (int i = 0; i < array.Length; ++i)
+                        array[i] = new Variable(i.ToString(), 0);
+                    storage.Add(name, array);
                     scope.native["amtaex_arrays_extension"] = storage;
                 }));
                 scope.functions.Add("_amtaex_arrays_get", new NativeFunction((scope) => {
-                    var namevar = scope.GetVariable("_amtaex_arrays_get_0");
-                    if (namevar == null || namevar.var_type != Variable.VariableType.String) return;
-                    var idxvar = scope.GetVariable("_amtaex_arrays_get_1");
-                    if (idxvar == null || idxvar.var_type != Variable.VariableType.Number) return;
-                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
-                    Variable? retvar = scope.GetVariable("_amtaex_arrays_get_ret");
-                    if (retvar == null)
-                        scope.RegisterVariable(new Variable("_amtaex_arrays_get_ret", storage[namevar.str_value!][(int)idxvar.num_value!]));
-                    else
-                        retvar.Assign(storage[namevar.str_value!][(int)idxvar.num_value!]);
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_get_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_get_1", Variable.VariableType.Number)) return;
+                    var name = Utilities.GetString(scope, "_amtaex_arrays_get_0");
+                    var idx = (int)Utilities.GetDouble(scope, "_amtaex_arrays_get_1");
                     scope.UnregisterVariable("_amtaex_arrays_get_0");
                     scope.UnregisterVariable("_amtaex_arrays_get_1");
+                    if (idx < 0)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_arrays_get_ret", "[idx < 0]");
+                        return;
+                    }
+                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
+                    if(!storage.ContainsKey(name))
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_arrays_get_ret", "[non-existing array]");
+                        return;
+                    }
+                    if (idx >= storage[name].Length)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_arrays_get_ret", "[idx >= array length]");
+                        return;
+                    }
+                    Utilities.ReturnValue(scope, "_amtaex_arrays_get_ret", storage[name][idx]);
                 }));
                 scope.functions.Add("_amtaex_arrays_set", new NativeFunction((scope) => {
-                    var namevar = scope.GetVariable("_amtaex_arrays_set_0");
-                    if (namevar == null || namevar.var_type != Variable.VariableType.String) return;
-                    var idxvar = scope.GetVariable("_amtaex_arrays_set_1");
-                    if (idxvar == null || idxvar.var_type != Variable.VariableType.Number) return;
-                    var valvar = scope.GetVariable("_amtaex_arrays_set_2");
-                    if (valvar == null) return;
-                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
-                    storage[namevar.str_value!][(int)idxvar.num_value!].Assign(valvar!);
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_set_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_arrays_set_1", Variable.VariableType.Number)) return;
+                    if (!Utilities.EnforceArgument(scope, "_amtaex_arrays_set_2")) return;
+                    var name = Utilities.GetString(scope, "_amtaex_arrays_set_0");
+                    var idx = (int)Utilities.GetDouble(scope, "_amtaex_arrays_set_1");
+                    var value = scope.GetVariable("_amtaex_arrays_set_2")!;
                     scope.UnregisterVariable("_amtaex_arrays_set_0");
                     scope.UnregisterVariable("_amtaex_arrays_set_1");
                     scope.UnregisterVariable("_amtaex_arrays_set_2");
+                    if (idx < 0) return;
+
+                    var storage = (Dictionary<string, Variable[]>)scope.native["amtaex_arrays_extension"];
+                    storage[name][idx].Assign(value);
                     scope.native["amtaex_arrays_extension"] = storage;
                 }));
             }
@@ -1305,6 +1315,143 @@ namespace AutomataProcessor
                 if (scope.variables.ContainsKey("_amtaex_string__quote"))
                     return; // TODO: throw error
                 scope.RegisterVariable(new Variable("_amtaex_string__quote", "\""));
+                scope.functions.Add("_amtaex_string_length", new NativeFunction((scope) => {
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_length_0", Variable.VariableType.String)) return;
+                    var str = Utilities.GetString(scope, "_amtaex_string_length_0");
+                    scope.UnregisterVariable("_amtaex_string_length_0");
+
+                    Utilities.ReturnValue(scope, "_amtaex_string_length_ret", str.Length);
+                }));
+                scope.functions.Add("_amtaex_string_charat", new NativeFunction((scope) => {
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_charat_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_charat_1", Variable.VariableType.Number)) return;
+                    var str = Utilities.GetString(scope, "_amtaex_string_charat_0");
+                    var idx = (int)Utilities.GetDouble(scope, "_amtaex_string_charat_1");
+                    scope.UnregisterVariable("_amtaex_string_charat_0");
+                    scope.UnregisterVariable("_amtaex_string_charat_1");
+                    if (idx < 0) {
+                        Utilities.ReturnValue(scope, "_amtaex_string_charat_ret", "idx < 0");
+                        return;
+                    }
+                    if (idx >= str.Length)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_string_charat_ret", "idx >= string length");
+                        return;
+                    }
+
+                    Utilities.ReturnValue(scope, "_amtaex_string_charat_ret", str[idx].ToString());
+                }));
+                scope.functions.Add("_amtaex_string_setchar", new NativeFunction((scope) => {
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_setchar_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_setchar_1", Variable.VariableType.Number)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_setchar_2", Variable.VariableType.String)) return;
+                    var str = Utilities.GetString(scope, "_amtaex_string_setchar_0");
+                    var idx = (int)Utilities.GetDouble(scope, "_amtaex_string_setchar_1");
+                    var newchr = Utilities.GetString(scope, "_amtaex_string_setchar_2");
+                    scope.UnregisterVariable("_amtaex_string_setchar_0");
+                    scope.UnregisterVariable("_amtaex_string_setchar_1");
+                    scope.UnregisterVariable("_amtaex_string_setchar_2");
+                    if (idx < 0)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_string_setchar_ret", "idx < 0");
+                        return;
+                    }
+                    if (idx >= str.Length)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_string_setchar_ret", "idx >= string length");
+                        return;
+                    }
+                    if (newchr.Length != 1)
+                    {
+                        Utilities.ReturnValue(scope, "_amtaex_string_setchar_ret", $"\"{newchr}\" is not a single character");
+                        return;
+                    }
+
+                    var charr = str.ToCharArray();
+                    charr[idx] = newchr[0];
+                    Utilities.ReturnValue(scope, "_amtaex_string_setchar_ret", new string(charr));
+                }));
+                scope.functions.Add("_amtaex_string_pad", new NativeFunction((scope) => {
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_pad_0", Variable.VariableType.String)) return;
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_pad_1", Variable.VariableType.Number)) return;
+                    var str = Utilities.GetString(scope, "_amtaex_string_pad_0");
+                    var padding = (int)Utilities.GetDouble(scope, "_amtaex_string_pad_1");
+                    scope.UnregisterVariable("_amtaex_string_pad_0");
+                    scope.UnregisterVariable("_amtaex_string_pad_1");
+                    if (padding < 0) return;
+
+                    while (str.Length < padding)
+                        str = " " + str;
+
+                    Utilities.ReturnValue(scope, "_amtaex_string_pad_ret", str);
+                }));
+                scope.functions.Add("_amtaex_string_number", new NativeFunction((scope) => {
+
+                    if (!Utilities.EnforceArgumentType(scope, "_amtaex_string_number_0", Variable.VariableType.String)) return;
+                    var str = Utilities.GetString(scope, "_amtaex_string_number_0");
+                    scope.UnregisterVariable("_amtaex_string_number_0");
+
+                    if (double.TryParse(str, out double n))
+                        Utilities.ReturnValue(scope, "_amtaex_string_number_ret", n);
+                    else
+                        Utilities.ReturnValue(scope, "_amtaex_string_number_ret", 0);
+                }));
+                scope.functions.Add("_amtaex_string_readline", new NativeFunction((scope) => {
+                    Utilities.ReturnValue(scope, "_amtaex_string_readline_ret", Console.ReadLine()!);
+                }));
+            }
+        }
+
+        static class Utilities
+        {
+            public static void ReturnValue(ProgramScope scope, string variable_name, double value)
+            {
+                Variable? retvar = scope.GetVariable(variable_name);
+                if (retvar == null)
+                    scope.RegisterVariable(new Variable(variable_name, value));
+                else
+                    retvar.Assign(value);
+            }
+            public static void ReturnValue(ProgramScope scope, string variable_name, string value)
+            {
+                Variable? retvar = scope.GetVariable(variable_name);
+                if (retvar == null)
+                    scope.RegisterVariable(new Variable(variable_name, value));
+                else
+                    retvar.Assign(value);
+            }
+            public static void ReturnValue(ProgramScope scope, string variable_name, Variable copyFrom)
+            {
+                Variable? retvar = scope.GetVariable(variable_name);
+                if (retvar == null)
+                    scope.RegisterVariable(new Variable(variable_name, copyFrom));
+                else
+                    retvar.Assign(copyFrom);
+            }
+            public static bool EnforceArgument(ProgramScope scope, string variable_name)
+            {
+                Variable? argvar = scope.GetVariable(variable_name);
+                if (argvar == null)
+                    return false;
+                return true;
+            }
+            public static bool EnforceArgumentType(ProgramScope scope, string variable_name, Backbone.Variable.VariableType type)
+            {
+                Variable? argvar = scope.GetVariable(variable_name);
+                if (argvar == null || argvar.var_type != type)
+                    return false;
+                return true;
+            }
+            public static string GetString(ProgramScope scope, string variable_name)
+            {
+                return scope.GetVariable(variable_name)!.str_value!;
+            }
+            public static double GetDouble(ProgramScope scope, string variable_name)
+            {
+                return scope.GetVariable(variable_name)!.num_value!.Value;
             }
         }
     }
