@@ -1,0 +1,10 @@
+{
+    "iconDefinitions": {
+        "_amtascript": {
+            "iconPath": "./amtascript-icon.svg"
+        }
+    },
+    "fileExtensions": {
+        "amtascript": "_amtascript"
+    }
+}

@@ -2,6 +2,10 @@
   "name": "amtascript",
   "displayName": "amtascript",
   "description": "provide .amtascript / automata syntax highlighting",
+  "icon": "./icon.png",
+  "repository": {
+    "url": "https://github.com/devilexe3/automata"
+  },
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.87.0"
@@ -19,7 +23,12 @@
     "grammars": [{
       "language": "amtascript",
       "scopeName": "source.amtascript",
-      "path": "./syntaxes/amtascript.tmLanguage.json"
+      "path": "./amtascript.tmLanguage.json"
+    }],
+    "iconThemes": [{
+      "id": "amtascript-icon",
+      "label": "AutoMaTA",
+      "path": "amtascript.icon-theme.json"
     }]
   }
 }
