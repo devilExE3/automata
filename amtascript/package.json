@@ -1,5 +1,6 @@
 {
   "name": "amtascript",
+  "publisher": "devilexe",
   "displayName": "amtascript",
   "description": "provide .amtascript / automata syntax highlighting",
   "icon": "./icon.png",
@@ -18,7 +19,11 @@
       "id": "amtascript",
       "aliases": ["automata script", "amtascript"],
       "extensions": [".amtascript"],
-      "configuration": "./language-configuration.json"
+      "configuration": "./language-configuration.json",
+      "icon": {
+        "dark": "./amtascript-icon.svg",
+        "light": "./amtascript-icon-light.svg"
+      }
     }],
     "grammars": [{
       "language": "amtascript",
